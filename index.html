@@ -46,6 +46,28 @@ select:focus{border-color:var(--red);}
 .view{padding:0 18px 20px;display:none;}
 .view.active{display:block;}
 
+/* GROUP SUMMARY CARD */
+.group-kpi{background:linear-gradient(135deg,#1E293B 0%,#334155 100%);border-radius:var(--r);padding:16px 20px;margin-bottom:14px;color:#fff;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;}
+.group-kpi .g-left{}
+.group-kpi .g-badge{background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;display:inline-block;margin-bottom:6px;letter-spacing:.5px;}
+.group-kpi .g-big{font-size:38px;font-weight:900;line-height:1;color:#fff;}
+.group-kpi .g-big sub{font-size:14px;font-weight:400;opacity:.7;margin-left:4px;vertical-align:baseline;}
+.group-kpi .g-sub{font-size:12px;opacity:.7;margin-top:3px;}
+.group-kpi .g-mid{border-left:1px solid rgba(255,255,255,.15);border-right:1px solid rgba(255,255,255,.15);padding:0 20px;}
+.group-kpi .g-pct{font-size:32px;font-weight:900;margin-bottom:4px;}
+.group-kpi .g-pbar{height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;margin-bottom:6px;}
+.group-kpi .g-pbar-fill{height:100%;border-radius:3px;background:#4ADE80;}
+.group-kpi .g-dlr-rows{display:flex;flex-direction:column;gap:4px;}
+.group-kpi .g-dlr-row{display:flex;align-items:center;gap:6px;font-size:11px;}
+.group-kpi .g-dlr-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.group-kpi .g-dlr-bar{flex:1;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;}
+.group-kpi .g-dlr-fill{height:100%;border-radius:2px;}
+.group-kpi .g-right{text-align:right;}
+.group-kpi .g-yoy-lbl{font-size:11px;opacity:.7;margin-bottom:4px;}
+.group-kpi .g-yoy{font-size:28px;font-weight:900;}
+.group-kpi .g-yoy-sub{font-size:11px;opacity:.7;margin-top:3px;}
+@media(max-width:700px){.group-kpi{grid-template-columns:1fr;}.group-kpi .g-mid{border:none;padding:10px 0;border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);}.group-kpi .g-right{text-align:left;}}
+
 /* KPI CARDS */
 .cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
 @media(max-width:700px){.cards3{grid-template-columns:1fr;}}
@@ -188,6 +210,7 @@ select:focus{border-color:var(--red);}
   <!-- OVERVIEW -->
   <div class="view active" id="v-overview">
     <div style="height:14px"></div>
+    <div id="group-card"></div>
     <div class="cards3" id="dealer-cards"></div>
     <div class="two">
       <div>
@@ -480,6 +503,49 @@ function render(){if(S.view==='overview')renderOverview();else if(S.view==='deal
 // OVERVIEW
 // ══════════════════════════════════════
 function renderOverview(){
+  // Group summary card
+  const ii=idx();
+  const allBR=Object.values(BR);
+  const gA=allBR.reduce((s,b)=>s+sum(b.a26,ii),0);
+  const gT=allBR.reduce((s,b)=>s+sum(b.t,ii),0);
+  const gA25=allBR.reduce((s,b)=>s+sum(b.a25,ii),0);
+  const gPct=gT>0?gA/gT*100:0;
+  const gYoy=gA25>0?(gA-gA25)/gA25*100:0;
+  const dlrStats=Object.keys(DLR).map(dk=>{
+    const rows=Object.values(BR).filter(b=>b.d===dk);
+    return {dk,a:rows.reduce((s,b)=>s+sum(b.a26,ii),0),t:rows.reduce((s,b)=>s+sum(b.t,ii),0)};
+  });
+  const pctColor=gPct>=100?'#4ADE80':gPct>=85?'#FDE047':'#F87171';
+  const yoyColor=gYoy>=0?'#4ADE80':'#F87171';
+  document.getElementById('group-card').innerHTML=`
+  <div class="group-kpi">
+    <div class="g-left">
+      <div class="g-badge">🏢 TKK GROUP — รวมทั้ง 3 ดีลเลอร์</div>
+      <div class="g-big">${gA}<sub>คัน</sub></div>
+      <div class="g-sub">สะสม ${periodLabel()} 2026 &nbsp;|&nbsp; เป้า ${gT} คัน</div>
+    </div>
+    <div class="g-mid">
+      <div class="g-pct" style="color:${pctColor}">${gPct.toFixed(1)}%</div>
+      <div class="g-pbar"><div class="g-pbar-fill" style="width:${Math.min(gPct,100)}%;background:${pctColor}"></div></div>
+      <div class="g-dlr-rows">${dlrStats.map(({dk,a,t})=>{
+        const p=t>0?a/t*100:0;
+        return `<div class="g-dlr-row">
+          <div class="g-dlr-dot" style="background:${DLR[dk].color}"></div>
+          <span style="min-width:30px;opacity:.85">${dk}</span>
+          <span style="min-width:38px;font-weight:700">${a}</span>
+          <div class="g-dlr-bar"><div class="g-dlr-fill" style="width:${Math.min(p,100)}%;background:${DLR[dk].color}"></div></div>
+          <span style="min-width:36px;text-align:right;opacity:.8">${p.toFixed(0)}%</span>
+        </div>`;
+      }).join('')}</div>
+    </div>
+    <div class="g-right">
+      <div class="g-yoy-lbl">YoY vs 2025</div>
+      <div class="g-yoy" style="color:${yoyColor}">${gYoy>=0?'+':''}${gYoy.toFixed(1)}%</div>
+      <div class="g-yoy-sub">2025: ${gA25} คัน</div>
+      <div class="g-yoy-sub" style="margin-top:6px;">ส่วนต่าง <span style="color:${gA>=gT?'#4ADE80':'#F87171'};font-weight:700">${gA>=gT?'+':''}${gA-gT} คัน</span></div>
+    </div>
+  </div>`;
+
   // Dealer KPI cards
   const c=document.getElementById('dealer-cards');
   const dkeys=S.dealer==='all'?Object.keys(DLR):[S.dealer];
