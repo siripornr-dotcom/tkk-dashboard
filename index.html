@@ -292,9 +292,9 @@ const MN = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ
 const MN_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const QMAP = {Q1:[0,1,2],Q2:[3,4,5],Q3:[6,7,8],Q4:[9,10,11]};
 const DLR = {
-  TKK:{name:'Toyota ขอนแก่น',color:'#EB0A1E',bg:'#FEE2E2'},
-  TML:{name:'Toyota เลย',color:'#1B4FBF',bg:'#DBEAFE'},
-  TPR:{name:'Toyota พนมรุ้ง',color:'#047857',bg:'#D1FAE5'}
+  TKK:{name:'Toyota Khonkean',color:'#EB0A1E',bg:'#FEE2E2'},
+  TML:{name:'Toyota Muang Loey',color:'#1B4FBF',bg:'#DBEAFE'},
+  TPR:{name:'Toyota Phanomrung',color:'#047857',bg:'#D1FAE5'}
 };
 const MMC = {PU:'#EB0A1E',AY:'#1B4FBF',SUV:'#047857',PPV:'#D97706',OT:'#94A3B8'};
 const MML = {PU:'PU (Pickup)',AY:'AY (Yaris/Altis)',SUV:'SUV',PPV:'PPV/MPV',OT:'อื่นๆ'};
@@ -553,7 +553,7 @@ function renderOverview(){
     const pa=sum(a[1].t,ii), pb=sum(b[1].t,ii);
     return (pb>0?sum(b[1].a26,ii)/pb:0)-(pa>0?sum(a[1].a26,ii)/pa:0);
   });
-  document.getElementById('branch-table').innerHTML='<thead><tr><th>สาขา</th><th>กลุ่ม</th><th class="r">จริง</th><th class="r">เป้า</th><th class="r">% บรรลุ</th><th class="r">YoY</th></tr></thead><tbody>'+
+  document.getElementById('branch-table').innerHTML='<thead><tr><th>สาขา</th><th>กลุ่ม</th><th class="r">ขายจริง</th><th class="r">เป้า</th><th class="r">% บรรลุ</th><th class="r">YoY</th></tr></thead><tbody>'+
     rows.map(function(entry){
       const id=entry[0], b=entry[1];
       const a=sum(b.a26,ii), t=sum(b.t,ii), a25=sum(b.a25,ii);
@@ -644,16 +644,16 @@ function renderBranch(id){
   kill('yoy');
   CH['yoy']=new Chart(document.getElementById('yoyChart').getContext('2d'),{type:'line',
     data:{labels:MN,datasets:[
-      {label:'2026 จริง',data:b.a26.map(function(v,i){return ACTIVE_MI.includes(i)?v:null;}),borderColor:d.color,backgroundColor:d.color+'25',fill:true,tension:.3,pointRadius:6,pointHoverRadius:8,spanGaps:false},
+      {label:'2026 ขายจริง',data:b.a26.map(function(v,i){return ACTIVE_MI.includes(i)?v:null;}),borderColor:d.color,backgroundColor:d.color+'25',fill:true,tension:.3,pointRadius:6,pointHoverRadius:8,spanGaps:false},
       {label:'2026 เป้า',data:b.t,borderColor:'#94A3B8',borderDash:[5,5],fill:false,tension:.3,pointRadius:4},
-      {label:'2025 จริง',data:b.a25,borderColor:'#CBD5E1',borderWidth:1.5,fill:false,tension:.3,pointRadius:4}
+      {label:'2025 ขายจริง',data:b.a25,borderColor:'#CBD5E1',borderWidth:1.5,fill:false,tension:.3,pointRadius:4}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
         tooltip:{callbacks:{afterBody:function(items){const mi=items[0].dataIndex;const a=b.a26[mi],t=b.t[mi],a25=b.a25[mi];return['% บรรลุ: '+(t>0?(a/t*100).toFixed(0):'—')+'%','YoY: '+(a25>0?((a-a25)/a25*100).toFixed(0):'—')+'%'];}}}},
       scales:{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}},
       onClick:function(evt,els){if(els.length&&ACTIVE_MI.includes(els[0].dataIndex))openModal(id,els[0].dataIndex);}}});
-  document.getElementById('month-table').innerHTML='<thead><tr><th>เดือน</th><th class="r">จริง 2026</th><th class="r">เป้า</th><th class="r">%</th><th class="r">2025</th><th class="r">YoY</th></tr></thead><tbody>'+
+  document.getElementById('month-table').innerHTML='<thead><tr><th>เดือน</th><th class="r">ขายจริง 2026</th><th class="r">เป้า</th><th class="r">%</th><th class="r">2025</th><th class="r">YoY</th></tr></thead><tbody>'+
     MN.map(function(m,i){
       const a=b.a26[i], t=b.t[i], a25=b.a25[i]; const has=ACTIVE_MI.includes(i);
       const pc=has&&t>0?(a/t*100):null; const yy=has&&a25>0?((a-a25)/a25*100):null;
