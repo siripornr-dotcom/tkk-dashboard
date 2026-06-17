@@ -453,7 +453,19 @@ function rebuildBranchSelect(){
   if ([...sel.options].find(o=>o.value===cur)) sel.value=cur;
   else { sel.value='all'; S.branch='all'; }
 }
-function onFilterChange(){S.dealer=document.getElementById('f-dealer').value;S.branch=document.getElementById('f-branch').value;rebuildBranchSelect();render();}
+function onFilterChange(){
+  S.dealer=document.getElementById('f-dealer').value;
+  S.branch=document.getElementById('f-branch').value;
+  rebuildBranchSelect();
+  // ถ้าอยู่หน้า Dealer detail — อัปเดต curD ให้ตรงกับ filter ที่เลือก
+  if(S.view==='dealer'){
+    if(S.dealer==='all'){ goOverview(); return; }
+    S.curD=S.dealer; renderDealer(S.curD); return;
+  }
+  // ถ้าอยู่หน้า Branch detail และเปลี่ยนดีลเลอร์ — กลับไป Overview
+  if(S.view==='branch'&&S.dealer!=='all'&&BR[S.curB]?.d!==S.dealer){ goOverview(); return; }
+  render();
+}
 function onMonthChange(){S.month=document.getElementById('f-month').value;if(S.month!=='all'){S.quarter='all';document.getElementById('f-quarter').value='all';}render();}
 function onQuarterChange(){S.quarter=document.getElementById('f-quarter').value;if(S.quarter!=='all'){S.month='all';document.getElementById('f-month').value='all';}render();}
 
