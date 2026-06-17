@@ -457,14 +457,29 @@ function onFilterChange(){
   S.dealer=document.getElementById('f-dealer').value;
   S.branch=document.getElementById('f-branch').value;
   rebuildBranchSelect();
-  // ถ้าอยู่หน้า Dealer detail — อัปเดต curD ให้ตรงกับ filter ที่เลือก
+
+  if(S.view==='overview'){
+    // Overview: filter แล้ว re-render ปกติ
+    render(); return;
+  }
+
   if(S.view==='dealer'){
     if(S.dealer==='all'){ goOverview(); return; }
-    S.curD=S.dealer; renderDealer(S.curD); return;
+    S.curD=S.dealer;
+    // ถ้าเลือกสาขาด้วย — เข้าหน้า Branch
+    if(S.branch!=='all'){ goBranch(S.branch); return; }
+    renderDealer(S.curD); return;
   }
-  // ถ้าอยู่หน้า Branch detail และเปลี่ยนดีลเลอร์ — กลับไป Overview
-  if(S.view==='branch'&&S.dealer!=='all'&&BR[S.curB]?.d!==S.dealer){ goOverview(); return; }
-  render();
+
+  if(S.view==='branch'){
+    // เปลี่ยนดีลเลอร์ให้ไม่ตรงกับสาขาปัจจุบัน — กลับ Overview
+    if(S.dealer!=='all'&&BR[S.curB]?.d!==S.dealer){ goOverview(); return; }
+    // เลือกสาขาใหม่ — เข้าหน้าสาขานั้น
+    if(S.branch!=='all'&&S.branch!==S.curB){ goBranch(S.branch); return; }
+    // เลือก "ทั้งหมด" — กลับหน้า Dealer
+    if(S.branch==='all'&&S.curD){ goDealer(S.curD); return; }
+    render(); return;
+  }
 }
 function onMonthChange(){S.month=document.getElementById('f-month').value;if(S.month!=='all'){S.quarter='all';document.getElementById('f-quarter').value='all';}render();}
 function onQuarterChange(){S.quarter=document.getElementById('f-quarter').value;if(S.quarter!=='all'){S.month='all';document.getElementById('f-month').value='all';}render();}
