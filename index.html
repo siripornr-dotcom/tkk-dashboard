@@ -458,27 +458,21 @@ function onFilterChange(){
   S.branch=document.getElementById('f-branch').value;
   rebuildBranchSelect();
 
-  if(S.view==='overview'){
-    // Overview: filter แล้ว re-render ปกติ
-    render(); return;
-  }
+  // ถ้าเลือกสาขาเฉพาะ → เข้าหน้าสาขาเสมอ (ทุก view)
+  if(S.branch!=='all'){ goBranch(S.branch); return; }
+
+  // ไม่ได้เลือกสาขา — ตัดสินใจตาม view ปัจจุบัน
+  if(S.view==='overview'){ render(); return; }
 
   if(S.view==='dealer'){
     if(S.dealer==='all'){ goOverview(); return; }
-    S.curD=S.dealer;
-    // ถ้าเลือกสาขาด้วย — เข้าหน้า Branch
-    if(S.branch!=='all'){ goBranch(S.branch); return; }
-    renderDealer(S.curD); return;
+    S.curD=S.dealer; renderDealer(S.curD); return;
   }
 
   if(S.view==='branch'){
-    // เปลี่ยนดีลเลอร์ให้ไม่ตรงกับสาขาปัจจุบัน — กลับ Overview
-    if(S.dealer!=='all'&&BR[S.curB]?.d!==S.dealer){ goOverview(); return; }
-    // เลือกสาขาใหม่ — เข้าหน้าสาขานั้น
-    if(S.branch!=='all'&&S.branch!==S.curB){ goBranch(S.branch); return; }
-    // เลือก "ทั้งหมด" — กลับหน้า Dealer
-    if(S.branch==='all'&&S.curD){ goDealer(S.curD); return; }
-    render(); return;
+    // branch=all → กลับหน้า Dealer ถ้ามี หรือ Overview
+    if(S.curD){ goDealer(S.curD); return; }
+    goOverview(); return;
   }
 }
 function onMonthChange(){S.month=document.getElementById('f-month').value;if(S.month!=='all'){S.quarter='all';document.getElementById('f-quarter').value='all';}render();}
@@ -487,7 +481,11 @@ function onQuarterChange(){S.quarter=document.getElementById('f-quarter').value;
 function showView(v){['v-overview','v-dealer','v-branch'].forEach(id=>document.getElementById(id).classList.remove('active'));document.getElementById('v-'+v).classList.add('active');S.view=v;updateCrumb();}
 function goOverview(){S.curD=null;S.curB=null;showView('overview');renderOverview();}
 function goDealer(dk){S.curD=dk;S.curB=null;showView('dealer');renderDealer(dk);}
-function goBranch(id){S.curB=id;S.curD=BR[id]?.d||null;showView('branch');renderBranch(id);}
+function goBranch(id){
+  S.curB=id; S.curD=BR[id]?.d||null; S.branch=id;
+  document.getElementById('f-branch').value=id;
+  showView('branch'); renderBranch(id);
+}
 function updateCrumb(){
   const el=document.getElementById('crumb');
   if (S.view==='overview') el.innerHTML='<span class="cur">ภาพรวมทั้งกลุ่ม</span>';
