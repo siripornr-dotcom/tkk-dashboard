@@ -551,10 +551,11 @@ function renderOverview(){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{stacked:true,ticks:{font:{size:9}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}}}});
 
   // Run rate
-  const nM=ACTIVE_MI.length||5;
+  const rrIdx=ACTIVE_MI.length?ACTIVE_MI:[0,1,2,3,4];
+  const nM=rrIdx.length||5;
   document.getElementById('rr-section').innerHTML=filtered().filter(function(e){return e[1].tf>0;}).map(function(entry){
     const id=entry[0], b=entry[1];
-    const a=sum(b.a26, ACTIVE_MI.length?ACTIVE_MI:[0,1,2,3,4]);
+    const a=sum(b.a26, rrIdx);
     const proj=Math.round(a/nM*12); const pct=b.tf>0?proj/b.tf*100:0; const dc=DLR[b.d];
     return '<div class="rr-item"><div class="rr-top"><span style="font-weight:700"><span class="dot" style="background:'+dc.color+'"></span>'+id+'</span>'+
       '<span style="color:'+pColor(pct)+';font-weight:700">'+proj+' คัน Proj → '+pct.toFixed(0)+'% ของเป้า '+b.tf+'</span></div>'+
@@ -605,9 +606,10 @@ function renderDealer(dk){
 function renderBranch(id){
   const b=BR[id]; if(!b) return;
   const d=DLR[b.d];
-  const aA=sum(b.a26,ACTIVE_MI), tA=sum(b.t,ACTIVE_MI), a25A=sum(b.a25,ACTIVE_MI);
+  const bIdx=idx();
+  const aA=sum(b.a26,bIdx), tA=sum(b.t,bIdx), a25A=sum(b.a25,bIdx);
   const pct=tA>0?aA/tA*100:0; const yoy=a25A>0?(aA-a25A)/a25A*100:0;
-  const nM=ACTIVE_MI.length||5; const proj=Math.round(aA/nM*12);
+  const nM=bIdx.length||5; const proj=Math.round(aA/nM*12);
   document.getElementById('b-metrics').innerHTML=
     '<div class="mc"><div class="lbl">สาขา / กลุ่ม</div><div class="val" style="color:'+d.color+';font-size:22px">'+id+'</div><div class="vsub">'+d.name+' ('+b.d+')</div></div>'+
     '<div class="mc"><div class="lbl">ยอดสะสม '+periodLabel()+' 2026</div><div class="val">'+aA+'<sub>คัน</sub></div><div class="vsub">เป้า '+tA+' คัน — <span style="color:'+pColor(pct)+';font-weight:700">'+pct.toFixed(1)+'%</span></div></div>'+
