@@ -326,7 +326,17 @@ async function fetchGviz(sheetName, range) {
   const p = new URLSearchParams({tqx:'out:json', sheet:sheetName});
   if (range) p.set('range', range);
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${p}`;
-  const resp = await fetch(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  let resp;
+  try {
+    resp = await fetch(url, {signal: controller.signal});
+  } catch(e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('หมดเวลา 12 วินาที — กรุณาตรวจสอบว่า Google Sheet ถูก Share เป็น "Anyone with the link can view" แล้ว');
+    throw new Error('เชื่อมต่อ Google Sheets ไม่ได้ — ตรวจสอบอินเทอร์เน็ต หรือ Share Sheet เป็น Public');
+  }
+  clearTimeout(timer);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} — ตรวจสอบว่า Sheet ถูก Share เป็น "Anyone with the link can view"`);
   const text = await resp.text();
   const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);?\s*$/);
@@ -395,10 +405,11 @@ async function init() {
   document.getElementById('load-status').style.display='block';
   document.getElementById('load-status').textContent='กำลังโหลดข้อมูลจาก Google Sheets...';
   try {
-    setStatus('โหลด RAW_Sales...');
-    const rawRows = await fetchGviz('RAW_Sales','A2:AP');
-    setStatus('โหลด MODEL_MIX...');
-    const mmRows  = await fetchGviz('MODEL_MIX');
+    setStatus('กำลังโหลดข้อมูล...');
+    const [rawRows, mmRows] = await Promise.all([
+      fetchGviz('RAW_Sales','A2:AP'),
+      fetchGviz('MODEL_MIX')
+    ]);
     buildData(rawRows, mmRows);
     stampTime();
     document.getElementById('loading').style.display='none';
