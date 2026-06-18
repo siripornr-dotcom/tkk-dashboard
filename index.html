@@ -378,7 +378,9 @@ function buildData(rawRows, mmRows) {
     if (curMi < 0) continue;
     // Branch at baseCol+1, PU at baseCol+2, PPV at baseCol+3, AY at baseCol+4, SDN at baseCol+5, SUV at baseCol+6, MPV at baseCol+7, VAN at baseCol+8, GR at baseCol+9
     var brN = String(row[baseCol+1]===null||row[baseCol+1]===undefined?'':row[baseCol+1]).trim();
-    if (!brN || brN==='Dlr.' || !newBR[brN]) continue;
+    // If we see "Dlr." header before any month code → assume January (block missing 012026 header)
+    if (brN === 'Dlr.') { if (curMi === -1) curMi = 0; continue; }
+    if (!brN || !newBR[brN]) continue;
     var b2 = baseCol + 2;
     newBR[brN].mm[curMi] = {
       PU:  n(row[b2+0]),
@@ -508,8 +510,8 @@ function onFilterChange(){
   }
 
   if(S.view==='branch'){
-    // branch=all → กลับหน้า Dealer ถ้ามี หรือ Overview
-    if(S.curD){ goDealer(S.curD); return; }
+    // branch=all → ไปหน้า Dealer ตาม S.dealer (ที่ user เลือกใหม่) หรือ Overview
+    if(S.dealer!=='all'){ goDealer(S.dealer); return; }
     goOverview(); return;
   }
 }
