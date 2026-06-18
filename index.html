@@ -331,7 +331,13 @@ async function fetchGviz(sheetName, range) {
 }
 
 function n(v){ return typeof v==='number' ? Math.round(v) : (parseInt(v)||0); }
-function mmForPeriod(b,ii){const r={PU:0,AY:0,SUV:0,PPV:0,OT:0};ii.forEach(function(i){const m=b.mm[i];if(m)Object.keys(r).forEach(function(k){r[k]+=(m[k]||0);});});return r;}
+function mmForPeriod(b,ii){
+  const r={PU:0,AY:0,SUV:0,PPV:0,OT:0};
+  ii.forEach(function(i){const m=b.mm[i];if(m)Object.keys(r).forEach(function(k){r[k]+=(m[k]||0);});});
+  // If no monthly data found, fall back to cumulative
+  if(Object.values(r).every(function(v){return v===0;})&&b.mmCum){return Object.assign({},b.mmCum);}
+  return r;
+}
 
 function buildData(rawRows, mmRows) {
   const newBR = {};
@@ -350,28 +356,45 @@ function buildData(rawRows, mmRows) {
       d: String(dealer),
       a26, t:t26, tf:n(row[27]),
       a25, t25:n(row[40]),
-      mm: Array.from({length:12}, function(){ return {PU:0,AY:0,SUV:0,PPV:0,OT:0}; })
+      mm: Array.from({length:12}, function(){ return {PU:0,AY:0,SUV:0,PPV:0,OT:0}; }),
+      mmCum: {PU:0,AY:0,SUV:0,PPV:0,OT:0}
     };
   }
-  // Parse monthly model mix blocks: rows starting with MMYYYY code (e.g. 012026 or 12026)
-  var curMi = -1;
-  for (const row of mmRows) {
-    const c0 = String(row[0]===null||row[0]===undefined?'':row[0]).trim();
-    const c1 = String(row[1]===null||row[1]===undefined?'':row[1]).trim();
-    if (c0 && /^\d{4,6}$/.test(c0)) {
-      const s = c0.replace(/^0+/,'') || '0';
-      curMi = parseInt(s.slice(0, s.length - 4)) - 1;
-      continue;
+  // Parse monthly model mix blocks — scan ALL columns for MMYYYY code (robust to different column positions)
+  var curMi = -1, baseCol = 0;
+  for (var ri = 0; ri < mmRows.length; ri++) {
+    var row = mmRows[ri]; if (!row) continue;
+    // Scan each column for a month code pattern (4-6 digits, last 4 = year 2026)
+    var monthCol = -1;
+    for (var ci = 0; ci < row.length; ci++) {
+      var v = String(row[ci]===null||row[ci]===undefined?'':row[ci]).trim();
+      if (/^\d{4,6}$/.test(v)) {
+        var s = v.replace(/^0+/,'') || '0';
+        var mNum = parseInt(s.slice(0, s.length - 4));
+        if (mNum >= 1 && mNum <= 12) { curMi = mNum-1; baseCol = ci; monthCol = ci; break; }
+      }
     }
-    if (curMi < 0 || curMi > 11 || !c1 || c1 === 'Dlr.' || c0 !== '') continue;
-    if (!newBR[c1]) continue;
-    newBR[c1].mm[curMi] = {
-      PU:  n(row[2]),
-      AY:  n(row[4]) + n(row[5]),
-      SUV: n(row[6]),
-      PPV: n(row[3]) + n(row[7]),
-      OT:  n(row[8]) + n(row[9])
+    if (monthCol >= 0) continue; // this was a month header row
+    if (curMi < 0) continue;
+    // Branch at baseCol+1, PU at baseCol+2, PPV at baseCol+3, AY at baseCol+4, SDN at baseCol+5, SUV at baseCol+6, MPV at baseCol+7, VAN at baseCol+8, GR at baseCol+9
+    var brN = String(row[baseCol+1]===null||row[baseCol+1]===undefined?'':row[baseCol+1]).trim();
+    if (!brN || brN==='Dlr.' || !newBR[brN]) continue;
+    var b2 = baseCol + 2;
+    newBR[brN].mm[curMi] = {
+      PU:  n(row[b2+0]),
+      AY:  n(row[b2+2]) + n(row[b2+3]),
+      SUV: n(row[b2+4]),
+      PPV: n(row[b2+1]) + n(row[b2+5]),
+      OT:  n(row[b2+6]) + n(row[b2+7])
     };
+  }
+  // Parse cumulative MODEL_MIX table as fallback (col0=branch, col1=TKK/TML/TPR, col2=PU, col3=AY, col4=SUV, col5=PPV, col6=OT)
+  for (const row of mmRows) {
+    const bName = String(row[0]===null||row[0]===undefined?'':row[0]);
+    if (!newBR[bName]) continue;
+    const grp = String(row[1]===null||row[1]===undefined?'':row[1]);
+    if (!['TKK','TML','TPR'].includes(grp)) continue;
+    newBR[bName].mmCum = {PU:n(row[2]),AY:n(row[3]),SUV:n(row[4]),PPV:n(row[5]),OT:n(row[6])};
   }
   BR = newBR;
   ACTIVE_MI = MN.map((_,i)=>i).filter(i => Object.values(BR).some(b=>b.a26[i]>0));
@@ -680,14 +703,25 @@ function renderBranch(id){
         '<td class="r '+(yy!==null?(yy>=0?'up':'dn'):'')+'">'+(yy!==null?(yy>=0?'▲':'▼')+Math.abs(yy).toFixed(0)+'%':'—')+'</td></tr>';
     }).join('')+'</tbody>';
   kill('branchMm');
-  document.getElementById('branch-mm-title').textContent='🚘 Model Mix รายเดือน';
   const mmMonths=ACTIVE_MI.length?ACTIVE_MI:[0,1,2,3,4];
-  CH['branchMm']=new Chart(document.getElementById('branchMmChart').getContext('2d'),{type:'bar',
-    data:{labels:mmMonths.map(function(i){return MN[i];}),
-      datasets:['PU','AY','SUV','PPV','OT'].map(function(mk){return{label:MML[mk],data:mmMonths.map(function(i){return b.mm[i]?b.mm[i][mk]:0;}),backgroundColor:MMC[mk]};})},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},
-      scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}}}});
+  const hasMonthlyData=b.mm.some(function(m){return Object.values(m).some(function(v){return v>0;});});
+  if(hasMonthlyData){
+    document.getElementById('branch-mm-title').textContent='🚘 Model Mix รายเดือน';
+    CH['branchMm']=new Chart(document.getElementById('branchMmChart').getContext('2d'),{type:'bar',
+      data:{labels:mmMonths.map(function(i){return MN[i];}),
+        datasets:['PU','AY','SUV','PPV','OT'].map(function(mk){return{label:MML[mk],data:mmMonths.map(function(i){return b.mm[i]?b.mm[i][mk]:0;}),backgroundColor:MMC[mk]};})},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},
+        scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}}}});
+  } else {
+    document.getElementById('branch-mm-title').textContent='🚘 Model Mix (สะสม)';
+    const mm=b.mmCum||{PU:0,AY:0,SUV:0,PPV:0,OT:0}; const mmT=Object.values(mm).reduce(function(s,v){return s+v;},0);
+    CH['branchMm']=new Chart(document.getElementById('branchMmChart').getContext('2d'),{type:'doughnut',
+      data:{labels:Object.keys(mm).filter(function(k){return mm[k]>0;}).map(function(k){return MML[k]+': '+mm[k]+' ('+(mmT>0?(mm[k]/mmT*100).toFixed(0):0)+'%)';}),
+        datasets:[{data:Object.keys(mm).filter(function(k){return mm[k]>0;}).map(function(k){return mm[k];}),
+          backgroundColor:Object.keys(mm).filter(function(k){return mm[k]>0;}).map(function(k){return MMC[k];}),borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:11}}}}}});
+  }
   const mmPeriod=mmForPeriod(b, mmMonths); const mmT=Object.values(mmPeriod).reduce(function(s,v){return s+v;},0);
   const gap=tA-aA; const best=Object.entries(mmPeriod).sort(function(a,b){return b[1]-a[1];})[0];
   const weakMs=ACTIVE_MI.filter(function(i){return b.t[i]>0&&b.a26[i]<b.t[i]*0.8;}).map(function(i){return MN[i];});
