@@ -454,11 +454,14 @@ function idx(){
   return ACTIVE_MI.length ? ACTIVE_MI : [0,1,2,3,4];
 }
 function sum(arr,ii){ return ii.reduce((s,i)=>s+(arr[i]||0),0); }
+// "ทั้งปี" mode = ไม่ได้เลือกไตรมาสหรือเดือนเจาะจง → เทียบกับเป้าหมายทั้งปี (tf) แทนเป้าของเดือนที่มีข้อมูลแล้ว
+function isFullYearView(){ return S.quarter==='all' && S.month==='all'; }
+function targetFor(b,ii){ return isFullYearView() ? (b.tf||0) : sum(b.t,ii); }
 function dlrSum(dk){
   const ii=idx();
   const rows=Object.values(BR).filter(b=>b.d===dk);
   const a=rows.reduce((s,b)=>s+sum(b.a26,ii),0);
-  const t=rows.reduce((s,b)=>s+sum(b.t,ii),0);
+  const t=rows.reduce((s,b)=>s+targetFor(b,ii),0);
   const a25=rows.reduce((s,b)=>s+sum(b.a25,ii),0);
   return {a,t,pct:t>0?a/t*100:0,yoy:a25>0?(a-a25)/a25*100:0,a25};
 }
@@ -539,8 +542,9 @@ function renderOverview(){
   const allBR=Object.values(BR);
 
   // Group summary card
+  const fullYear=isFullYearView();
   const gA=allBR.reduce((s,b)=>s+sum(b.a26,ii),0);
-  const gT=allBR.reduce((s,b)=>s+sum(b.t,ii),0);
+  const gT=allBR.reduce((s,b)=>s+targetFor(b,ii),0);
   const gA25=allBR.reduce((s,b)=>s+sum(b.a25,ii),0);
   const gPct=gT>0?gA/gT*100:0;
   const gYoy=gA25>0?(gA-gA25)/gA25*100:0;
@@ -548,13 +552,13 @@ function renderOverview(){
   const yoyColor=gYoy>=0?'#4ADE80':'#F87171';
   const dlrStats=Object.keys(DLR).map(dk=>{
     const rows=Object.values(BR).filter(b=>b.d===dk);
-    return {dk,a:rows.reduce((s,b)=>s+sum(b.a26,ii),0),t:rows.reduce((s,b)=>s+sum(b.t,ii),0)};
+    return {dk,a:rows.reduce((s,b)=>s+sum(b.a26,ii),0),t:rows.reduce((s,b)=>s+targetFor(b,ii),0)};
   });
   document.getElementById('group-card').innerHTML=
     '<div class="group-kpi">'+
     '<div><div class="g-badge">🏢 TKK GROUP — รวมทั้ง 3 ดีลเลอร์</div>'+
     '<div class="g-big">'+gA+'<sub>คัน</sub></div>'+
-    '<div class="g-sub">สะสม '+periodLabel()+' 2026 &nbsp;|&nbsp; เป้า '+gT+' คัน</div></div>'+
+    '<div class="g-sub">สะสม '+periodLabel()+' 2026 &nbsp;|&nbsp; '+(fullYear?'เป้าทั้งปี ':'เป้า ')+gT+' คัน</div></div>'+
     '<div class="g-mid">'+
     '<div class="g-pct" style="color:'+pctColor+'">'+gPct.toFixed(1)+'%</div>'+
     '<div class="g-pbar"><div class="g-pbar-fill" style="width:'+Math.min(gPct,100)+'%;background:'+pctColor+'"></div></div>'+
@@ -581,7 +585,7 @@ function renderOverview(){
     const div=document.createElement('div'); div.className='kpi'; div.onclick=function(){goDealer(dk);};
     div.innerHTML='<span class="badge" style="background:'+d.color+'">'+dk+' <span style="font-size:9px;font-weight:400;opacity:.85">'+d.name+'</span></span>'+
       '<div class="big">'+s.a+'<sub>คัน</sub></div>'+
-      '<div class="sub-row">เป้า '+s.t+' คัน ('+periodLabel()+')</div>'+
+      '<div class="sub-row">'+(fullYear?'เป้าทั้งปี '+s.t+' คัน':'เป้า '+s.t+' คัน ('+periodLabel()+')')+'</div>'+
       '<div class="pct-big" style="color:'+pColor(s.pct)+'">'+s.pct.toFixed(1)+'%</div>'+
       '<div class="pbar"><div class="pbar-fill" style="width:'+Math.min(s.pct,100)+'%;background:'+d.color+'"></div></div>'+
       '<div class="yoy-row" style="color:'+(s.yoy>=0?'#16A34A':'#DC2626')+'">'+(s.yoy>=0?'+':'')+s.yoy.toFixed(1)+'% YoY vs 2025 ('+s.a25+' คัน)</div>';
@@ -590,13 +594,13 @@ function renderOverview(){
 
   // Branch table
   const rows=filtered().sort(function(a,b){
-    const pa=sum(a[1].t,ii), pb=sum(b[1].t,ii);
+    const pa=targetFor(a[1],ii), pb=targetFor(b[1],ii);
     return (pb>0?sum(b[1].a26,ii)/pb:0)-(pa>0?sum(a[1].a26,ii)/pa:0);
   });
-  document.getElementById('branch-table').innerHTML='<thead><tr><th>สาขา</th><th>กลุ่ม</th><th class="r">จริง</th><th class="r">เป้า</th><th class="r">% บรรลุ</th><th class="r">YoY</th></tr></thead><tbody>'+
+  document.getElementById('branch-table').innerHTML='<thead><tr><th>สาขา</th><th>กลุ่ม</th><th class="r">จริง</th><th class="r">'+(fullYear?'เป้าทั้งปี':'เป้า')+'</th><th class="r">% บรรลุ</th><th class="r">YoY</th></tr></thead><tbody>'+
     rows.map(function(entry){
       const id=entry[0], b=entry[1];
-      const a=sum(b.a26,ii), t=sum(b.t,ii), a25=sum(b.a25,ii);
+      const a=sum(b.a26,ii), t=targetFor(b,ii), a25=sum(b.a25,ii);
       const pct=t>0?(a/t*100):null; const yoy=a25>0?((a-a25)/a25*100):null; const dc=DLR[b.d];
       return '<tr onclick="goBranch(\''+id+'\')">'+
         '<td><span class="dot" style="background:'+dc.color+'"></span><strong>'+id+'</strong></td>'+
@@ -634,15 +638,15 @@ function renderDealer(dk){
   const s=dlrSum(dk);
   document.getElementById('dlr-kpi').innerHTML=
     '<div class="kpi" style="cursor:default"><span class="badge" style="background:'+d.color+'">'+dk+' '+d.name+'</span><div class="big">'+s.a+'<sub>คัน</sub></div><div class="sub-row">สะสม '+periodLabel()+' 2026</div><div class="pbar"><div class="pbar-fill" style="width:'+Math.min(s.pct,100)+'%;background:'+d.color+'"></div></div></div>'+
-    '<div class="kpi" style="cursor:default"><span class="badge" style="background:#64748B">เป้าหมาย</span><div class="big">'+s.t+'<sub>คัน</sub></div><div class="pct-big" style="color:'+pColor(s.pct)+'">'+s.pct.toFixed(1)+'%</div><div class="sub-row" style="color:'+pColor(s.pct)+';font-weight:700">ส่วนต่าง '+(s.a-s.t)+' คัน</div></div>'+
+    '<div class="kpi" style="cursor:default"><span class="badge" style="background:#64748B">'+(isFullYearView()?'เป้าหมายทั้งปี':'เป้าหมาย')+'</span><div class="big">'+s.t+'<sub>คัน</sub></div><div class="pct-big" style="color:'+pColor(s.pct)+'">'+s.pct.toFixed(1)+'%</div><div class="sub-row" style="color:'+pColor(s.pct)+';font-weight:700">ส่วนต่าง '+(s.a-s.t)+' คัน</div></div>'+
     '<div class="kpi" style="cursor:default"><span class="badge" style="background:#475569">YoY vs 2025</span><div class="big" style="color:'+(s.yoy>=0?'#16A34A':'#DC2626')+'">'+(s.yoy>=0?'+':'')+s.yoy.toFixed(1)+'<sub>%</sub></div><div class="sub-row">2025: '+s.a25+' → 2026: '+s.a+' คัน</div></div>';
   document.getElementById('dlr-title').textContent='สาขาใน '+dk+' ('+branches.length+' สาขา)';
   document.getElementById('dlr-list').innerHTML=branches.sort(function(a,b){
-    const pa=sum(a[1].t,ii), pb=sum(b[1].t,ii);
+    const pa=targetFor(a[1],ii), pb=targetFor(b[1],ii);
     return (pb>0?sum(b[1].a26,ii)/pb:0)-(pa>0?sum(a[1].a26,ii)/pa:0);
   }).map(function(entry){
     const id=entry[0], b=entry[1];
-    const a=sum(b.a26,ii), t=sum(b.t,ii); const pct=t>0?(a/t*100):null;
+    const a=sum(b.a26,ii), t=targetFor(b,ii); const pct=t>0?(a/t*100):null;
     return '<div class="bl-item" onclick="goBranch(\''+id+'\')"><div class="bl-left"><span class="dot" style="background:'+d.color+';width:10px;height:10px;"></span>'+
       '<div><div class="bl-name">'+id+'</div>'+(pct!==null?'<div class="mbar" style="width:100px"><span class="mbar-fill" style="width:'+Math.min(pct,100)+'%;background:'+pColor(pct)+'"></span></div>':'')+'</div></div>'+
       '<div class="bl-right"><div class="bl-pct" style="color:'+(pct!==null?pColor(pct):'var(--text2)')+'">'+(pct!==null?pct.toFixed(0)+'%':'—')+'</div><div class="bl-actual">'+a+' / '+(t||'—')+' คัน</div></div></div>';
